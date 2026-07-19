@@ -124,18 +124,32 @@ def run_cmd(args, out):
     env["CHATMAIL_DISABLE_MAIL"] = "True" if args.disable_mail else ""
     env["CHATMAIL_REQUIRE_IROH"] = "True" if require_iroh else ""
     deploy_path = importlib.resources.files(__package__).joinpath("run.py").resolve()
-    pyinf = "pyinfra --dry" if args.dry_run else "pyinfra"
+    pyinf_bin = "pyinfra"
 
-    cmd = f"{pyinf} --ssh-user root {sshexec_host} {deploy_path} -y"
-    if sshexec_host == "localhost":
-        cmd = f"{pyinf} @local {deploy_path} -y"
+    if ":" in sshexec_host:
+        cmd_args = [pyinf_bin]
+        if args.dry_run:
+            cmd_args.append("--dry")
+        cmd_args += ["--ssh-user", "root", f"[{sshexec_host}]", str(deploy_path), "-y"]
+        cmd_str = " ".join(cmd_args)
+    elif sshexec_host == "localhost":
+        pyinf = f"{pyinf_bin} --dry" if args.dry_run else pyinf_bin
+        cmd_str = f"{pyinf} @local {deploy_path} -y"
+        cmd_args = None
+    else:
+        pyinf = f"{pyinf_bin} --dry" if args.dry_run else pyinf_bin
+        cmd_str = f"{pyinf} --ssh-user root {sshexec_host} {deploy_path} -y"
+        cmd_args = None
 
     if version.parse(pyinfra.__version__) < version.parse("3"):
         out.red("Please re-run scripts/initenv.sh to update pyinfra to version 3.")
         return 1
 
     try:
-        out.check_call(cmd, env=env)
+        if cmd_args:
+            subprocess.check_call(cmd_args, env=env)
+        else:
+            out.check_call(cmd_str, env=env)
         if args.website_only:
             out.green("Website deployment completed.")
         elif not args.dns_check_disabled and strict_tls and not remote_data["acme_account_url"]:
