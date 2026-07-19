@@ -45,11 +45,18 @@ def print_stderr(item="", end="\n"):
     sys.stderr.flush()
 
 
+def _bracket_ipv6(host: str) -> str:
+    if ":" in host and not host.startswith("["):
+        host = f"[{host}]"
+    return host
+
+
 class SSHExec:
     RemoteError = execnet.RemoteError
     FuncError = FuncError
 
     def __init__(self, host, verbose=False, python="python3", timeout=60):
+        host = _bracket_ipv6(host)
         self.gateway = execnet.makegateway(f"ssh=root@{host}//python={python}")
         self._remote_cmdloop_channel = bootstrap_remote(self.gateway, remote)
         self.timeout = timeout

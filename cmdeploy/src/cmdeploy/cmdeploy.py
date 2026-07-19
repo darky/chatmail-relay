@@ -20,6 +20,14 @@ from termcolor import colored
 from . import dns, remote
 from .sshexec import LocalExec, SSHExec
 
+
+def _format_ssh_host(host: str) -> str:
+    if host.startswith("[IPv6:"):
+        host = host[6:-1]
+    if ":" in host and not host.startswith("["):
+        host = f"[{host}]"
+    return host
+
 #
 # cmdeploy sub commands and options
 #
@@ -96,7 +104,7 @@ def _warn_unused_settings(unused_keys, out):
 def run_cmd(args, out):
     """Deploy chatmail services on the remote server."""
 
-    ssh_host = args.ssh_host if args.ssh_host else args.config.mail_domain_bare
+    ssh_host = _format_ssh_host(args.ssh_host if args.ssh_host else args.config.mail_domain_bare)
     sshexec = get_sshexec(ssh_host)
     require_iroh = args.config.enable_iroh_relay
     strict_tls = args.config.tls_cert_mode == "acme"
@@ -158,7 +166,7 @@ def dns_cmd(args, out):
         relay = args.config.ipv4_relay or args.config.ipv6_relay
         print(f"[WARNING] {relay} is not a domain, skipping DNS checks.")
         return 0
-    ssh_host = args.ssh_host if args.ssh_host else args.config.mail_domain
+    ssh_host = _format_ssh_host(args.ssh_host if args.ssh_host else args.config.mail_domain)
     sshexec = get_sshexec(ssh_host, verbose=args.verbose)
     tls_cert_mode = args.config.tls_cert_mode
     strict_tls = tls_cert_mode == "acme"
@@ -195,7 +203,7 @@ def status_cmd_options(parser):
 def status_cmd(args, out):
     """Display status for online chatmail instance."""
 
-    ssh_host = args.ssh_host if args.ssh_host else args.config.mail_domain_bare
+    ssh_host = _format_ssh_host(args.ssh_host if args.ssh_host else args.config.mail_domain_bare)
     sshexec = get_sshexec(ssh_host, verbose=args.verbose)
 
     out.green(f"chatmail domain: {args.config.mail_domain}")
