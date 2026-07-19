@@ -9,12 +9,14 @@ import time
 from pathlib import Path
 
 import pytest
-from chatmaild.config import is_valid_ipv4, read_config
+from chatmaild.config import is_valid_ipv4, is_valid_ipv6, read_config
 
 
 def format_mail_domain(raw_domain: str) -> str:
     if is_valid_ipv4(raw_domain):
         return f"[{raw_domain}]"
+    if is_valid_ipv6(raw_domain):
+        return f"[IPv6:{raw_domain}]"
     return raw_domain
 
 
@@ -174,15 +176,20 @@ def ssl_context(chatmail_config):
     return None
 
 
-@pytest.fixture
-def imap(maildomain, ssl_context):
-    return ImapConn(maildomain, ssl_context=ssl_context)
+@pytest.fixture(scope="session")
+def use_plain(chatmail_config):
+    return chatmail_config.tls_cert_mode == "none"
 
 
 @pytest.fixture
-def make_imap_connection(maildomain, ssl_context):
+def imap(maildomain, ssl_context, use_plain):
+    return ImapConn(maildomain, ssl_context=ssl_context, use_plain=use_plain)
+
+
+@pytest.fixture
+def make_imap_connection(maildomain, ssl_context, use_plain):
     def make_imap_connection():
-        conn = ImapConn(maildomain, ssl_context=ssl_context)
+        conn = ImapConn(maildomain, ssl_context=ssl_context, use_plain=use_plain)
         conn.connect()
         return conn
 
@@ -194,13 +201,17 @@ class ImapConn:
     logcmd = "journalctl -f -u dovecot"
     name = "dovecot"
 
-    def __init__(self, host, ssl_context=None):
+    def __init__(self, host, ssl_context=None, use_plain=False):
         self.host = host
         self.ssl_context = ssl_context
+        self.use_plain = use_plain
 
     def connect(self):
         print(f"imap-connect {self.host}")
-        self.conn = imaplib.IMAP4_SSL(self.host, ssl_context=self.ssl_context)
+        if self.use_plain:
+            self.conn = imaplib.IMAP4(self.host)
+        else:
+            self.conn = imaplib.IMAP4_SSL(self.host, ssl_context=self.ssl_context)
 
     def login(self, user, password):
         print(f"imap-login {user!r} {password!r}")
@@ -226,14 +237,14 @@ class ImapConn:
 
 
 @pytest.fixture
-def smtp(maildomain, ssl_context):
-    return SmtpConn(maildomain, ssl_context=ssl_context)
+def smtp(maildomain, ssl_context, use_plain):
+    return SmtpConn(maildomain, ssl_context=ssl_context, use_plain=use_plain)
 
 
 @pytest.fixture
-def make_smtp_connection(maildomain, ssl_context):
+def make_smtp_connection(maildomain, ssl_context, use_plain):
     def make_smtp_connection():
-        conn = SmtpConn(maildomain, ssl_context=ssl_context)
+        conn = SmtpConn(maildomain, ssl_context=ssl_context, use_plain=use_plain)
         conn.connect()
         return conn
 
@@ -245,14 +256,18 @@ class SmtpConn:
     logcmd = "journalctl -f -t postfix/smtpd -t postfix/smtp -t postfix/lmtp"
     name = "postfix"
 
-    def __init__(self, host, ssl_context=None):
+    def __init__(self, host, ssl_context=None, use_plain=False):
         self.host = host
         self.ssl_context = ssl_context
+        self.use_plain = use_plain
 
     def connect(self):
         print(f"smtp-connect {self.host}")
-        context = self.ssl_context or ssl.create_default_context()
-        self.conn = smtplib.SMTP_SSL(self.host, context=context)
+        if self.use_plain:
+            self.conn = smtplib.SMTP(self.host)
+        else:
+            context = self.ssl_context or ssl.create_default_context()
+            self.conn = smtplib.SMTP_SSL(self.host, context=context)
 
     def login(self, user, password):
         print(f"smtp-login {user!r} {password!r}")
@@ -324,7 +339,7 @@ class ChatmailACFactory:
             "imapServer": domain,
             "smtpServer": domain,
         }
-        if domain.startswith("_") or is_valid_ipv4(domain):
+        if domain.startswith("_") or is_valid_ipv4(domain) or is_valid_ipv6(domain):
             transport["certificateChecks"] = "acceptInvalidCertificates"
         return transport
 
@@ -341,14 +356,15 @@ class ChatmailACFactory:
             account = self.dc.add_account()
             domain_deliverable = format_mail_domain(domain)
             addr, password = self.gencreds(domain_deliverable)
-            if is_valid_ipv4(domain):
+            if is_valid_ipv4(domain) or is_valid_ipv6(domain):
                 # Use DCLOGIN scheme with explicit server hosts,
                 # matching how madmail presents its addresses to users.
+                ssl_suffix = "none" if self.chatmail_config.tls_cert_mode == "none" else "ssl"
                 qr = (
                     f"dclogin:{addr}"
                     f"?p={password}&v=1"
-                    f"&ih={domain}&ip=993&is=ssl"
-                    f"&sh={domain}&sp=465&ss=ssl"
+                    f"&ih={domain}&ip=143&is={ssl_suffix}"
+                    f"&sh={domain}&sp=587&ss={ssl_suffix}"
                     f"&ic=3"
                 )
                 future = account.add_transport_from_qr.future(qr)
@@ -461,45 +477,47 @@ def lp(request):
 
 
 @pytest.fixture
-def cmsetup(maildomain, gencreds, ssl_context):
-    return CMSetup(maildomain, gencreds, ssl_context)
+def cmsetup(maildomain, gencreds, ssl_context, use_plain):
+    return CMSetup(maildomain, gencreds, ssl_context, use_plain)
 
 
 @pytest.fixture
-def cmsetup2(maildomain2, gencreds, ssl_context):
-    return CMSetup(maildomain2, gencreds, ssl_context)
+def cmsetup2(maildomain2, gencreds, ssl_context, use_plain):
+    return CMSetup(maildomain2, gencreds, ssl_context, use_plain)
 
 
 class CMSetup:
-    def __init__(self, maildomain, gencreds, ssl_context):
+    def __init__(self, maildomain, gencreds, ssl_context, use_plain=False):
         self.maildomain = maildomain
         self.gencreds = gencreds
         self.ssl_context = ssl_context
+        self.use_plain = use_plain
 
     def gen_users(self, num):
         print(f"Creating {num} online users")
         users = []
         for i in range(num):
             addr, password = self.gencreds(format_mail_domain(self.maildomain))
-            user = CMUser(self.maildomain, addr, password, self.ssl_context)
+            user = CMUser(self.maildomain, addr, password, self.ssl_context, self.use_plain)
             assert user.smtp
             users.append(user)
         return users
 
 
 class CMUser:
-    def __init__(self, maildomain, addr, password, ssl_context=None):
+    def __init__(self, maildomain, addr, password, ssl_context=None, use_plain=False):
         self.maildomain = maildomain
         self.addr = addr
         self.password = password
         self.ssl_context = ssl_context
+        self.use_plain = use_plain
         self._smtp = None
         self._imap = None
 
     @property
     def smtp(self):
         if not self._smtp:
-            handle = SmtpConn(self.maildomain, ssl_context=self.ssl_context)
+            handle = SmtpConn(self.maildomain, ssl_context=self.ssl_context, use_plain=self.use_plain)
             handle.connect()
             handle.login(self.addr, self.password)
             self._smtp = handle
@@ -508,7 +526,7 @@ class CMUser:
     @property
     def imap(self):
         if not self._imap:
-            imap = ImapConn(self.maildomain, ssl_context=self.ssl_context)
+            imap = ImapConn(self.maildomain, ssl_context=self.ssl_context, use_plain=self.use_plain)
             imap.connect()
             imap.login(self.addr, self.password)
             self._imap = imap

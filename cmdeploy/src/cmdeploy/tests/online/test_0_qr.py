@@ -11,7 +11,8 @@ def test_gen_qr_png_data(maildomain):
 
 @pytest.mark.filterwarnings("ignore::urllib3.exceptions.InsecureRequestWarning")
 def test_fastcgi_working(maildomain, chatmail_config):
-    url = f"https://{maildomain}/new"
+    scheme = "http" if chatmail_config.tls_cert_mode == "none" else "https"
+    url = f"{scheme}://{maildomain}/new"
     print(url)
     verify = chatmail_config.tls_cert_mode == "acme"
     res = requests.post(url, verify=verify)
@@ -22,7 +23,8 @@ def test_fastcgi_working(maildomain, chatmail_config):
 @pytest.mark.filterwarnings("ignore::urllib3.exceptions.InsecureRequestWarning")
 def test_newemail_configure(maildomain, rpc, chatmail_config):
     """Test configuring accounts by scanning a QR code works."""
-    url = f"DCACCOUNT:https://{maildomain}/new"
+    scheme = "http" if chatmail_config.tls_cert_mode == "none" else "https"
+    url = f"DCACCOUNT:{scheme}://{maildomain}/new"
     for i in range(3):
         account_id = rpc.add_account()
         if chatmail_config.tls_cert_mode == "self":

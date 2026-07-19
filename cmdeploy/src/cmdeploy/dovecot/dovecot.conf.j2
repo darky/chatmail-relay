@@ -247,12 +247,16 @@ service anvil {
     }
 }
 
+{% if config.tls_cert_mode == "none" %}
+ssl = no
+{% else %}
 ssl = required
 ssl_cert = <{{ config.tls_cert_path }}
 ssl_key = <{{ config.tls_key_path }}
 ssl_dh = </usr/share/dovecot/dh.pem
 ssl_min_protocol = TLSv1.3
 ssl_prefer_server_ciphers = yes
+{% endif %}
 
 
 {% if config.imap_rawlog %}

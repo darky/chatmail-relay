@@ -447,6 +447,8 @@ class GithashDeployer(Deployer):
 
 def get_tls_deployer(config, mail_domain):
     """Select the appropriate TLS deployer based on config."""
+    if config.tls_cert_mode == "none":
+        return None
     tls_domains = [mail_domain, f"mta-sts.{mail_domain}", f"www.{mail_domain}"]
 
     if config.tls_cert_mode == "acme":
@@ -501,14 +503,20 @@ def deploy_chatmail(config_path: Path, disable_mail: bool, website_only: bool) -
             # so don't complain during upgrade that moved it to port 402
             # and gave the port to nginx.
             (["acmetool", "nginx"], 80),
-            ("nginx", 443),
-            (["master", "smtpd"], 465),
-            (["master", "smtpd"], 587),
-            (["imap-login", "dovecot"], 993),
-            ("iroh-relay", 3340),
-            ("mtail", 3903),
-            ("stats", 3904),
-            ("nginx", 8443),
+        ]
+        if config.tls_cert_mode == "none":
+            port_services += [
+                ("nginx", 8080),
+            ]
+        else:
+            port_services += [
+                ("nginx", 443),
+                (["master", "smtpd"], 465),
+                (["master", "smtpd"], 587),
+                (["imap-login", "dovecot"], 993),
+                ("nginx", 8443),
+            ]
+        port_services += [
             (["master", "smtpd"], config.postfix_reinject_port),
             (["master", "smtpd"], config.postfix_reinject_port_incoming),
             ("filtermail", config.filtermail_smtp_port),
@@ -537,11 +545,14 @@ def deploy_chatmail(config_path: Path, disable_mail: bool, website_only: bool) -
         UnboundDeployer(config),
         TurnDeployer(bare_host),
         IrohDeployer(config.enable_iroh_relay),
-        tls_deployer,
+    ]
+    if tls_deployer:
+        all_deployers.append(tls_deployer)
+    all_deployers += [
         WebsiteDeployer(config),
         ChatmailVenvDeployer(config),
         MtastsDeployer(),
-        *([] if config.ipv4_relay else [OpendkimDeployer(bare_host)]),
+        *([] if config.ipv4_relay or config.ipv6_relay else [OpendkimDeployer(bare_host)]),
         # Dovecot should be started before Postfix
         # because it creates authentication socket
         # required by Postfix.

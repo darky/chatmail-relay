@@ -33,9 +33,12 @@ class NginxDeployer(Deployer):
         #
         self.put_executable(src="policy-rc.d", dest="/usr/sbin/policy-rc.d")
 
+        packages = ["nginx"]
+        if self.config.tls_cert_mode != "none":
+            packages.append("libnginx-mod-stream")
         apt.packages(
             name="Install nginx",
-            packages=["nginx", "libnginx-mod-stream"],
+            packages=packages,
         )
 
         self.remove_file("/usr/sbin/policy-rc.d")
@@ -63,11 +66,12 @@ def _configure_nginx(deployer, config: Config, debug: bool = False):
         config=config,
     )
 
-    deployer.put_template(
-        "nginx/mta-sts.txt.j2",
-        "/var/www/html/.well-known/mta-sts.txt",
-        config=config,
-    )
+    if config.tls_cert_mode != "none":
+        deployer.put_template(
+            "nginx/mta-sts.txt.j2",
+            "/var/www/html/.well-known/mta-sts.txt",
+            config=config,
+        )
 
     # install CGI newemail script
     #

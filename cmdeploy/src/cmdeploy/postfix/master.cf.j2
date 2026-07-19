@@ -14,18 +14,22 @@ smtp      inet  n       -       y       -       -       smtpd -v
 {%- else %}
 smtp      inet  n       -       y       -       -       smtpd 
 {%- endif %}
+{% if config.tls_cert_mode != "none" %}
   -o smtpd_tls_security_level=encrypt
   -o smtpd_tls_mandatory_protocols=>=TLSv1.2
+{% endif %}
   -o smtpd_proxy_filter=127.0.0.1:{{ config.filtermail_smtp_port_incoming }}
   -o smtpd_relay_restrictions=reject_unauth_destination
 submission inet n       -       y       -       5000    smtpd
   -o syslog_name=postfix/submission
+{% if config.tls_cert_mode != "none" %}
   -o smtpd_tls_security_level=encrypt
   -o smtpd_tls_mandatory_protocols=>=TLSv1.3
+  -o smtpd_tls_auth_only=yes
+{% endif %}
   -o smtpd_sasl_auth_enable=yes
   -o smtpd_sasl_type=dovecot
   -o smtpd_sasl_path=private/auth
-  -o smtpd_tls_auth_only=yes
   -o smtpd_reject_unlisted_recipient=no
   -o smtpd_client_restrictions=$mua_client_restrictions
   -o smtpd_helo_restrictions=$mua_helo_restrictions
@@ -34,6 +38,21 @@ submission inet n       -       y       -       5000    smtpd
   -o smtpd_relay_restrictions=permit_sasl_authenticated,reject
   -o smtpd_client_connection_count_limit=1000
   -o smtpd_proxy_filter=127.0.0.1:{{ config.filtermail_smtp_port }}
+{% if config.tls_cert_mode == "none" %}
+submission2 inet n      -       y       -       5000    smtpd
+  -o syslog_name=postfix/submission2
+  -o smtpd_sasl_auth_enable=yes
+  -o smtpd_sasl_type=dovecot
+  -o smtpd_sasl_path=private/auth
+  -o smtpd_reject_unlisted_recipient=no
+  -o smtpd_client_restrictions=$mua_client_restrictions
+  -o smtpd_helo_restrictions=$mua_helo_restrictions
+  -o smtpd_sender_restrictions=$mua_sender_restrictions
+  -o smtpd_recipient_restrictions=
+  -o smtpd_relay_restrictions=permit_sasl_authenticated,reject
+  -o smtpd_client_connection_count_limit=1000
+  -o smtpd_proxy_filter=127.0.0.1:{{ config.filtermail_smtp_port }}
+{% else %}
 smtps     inet  n       -       y       -       5000    smtpd
   -o syslog_name=postfix/smtps
   -o smtpd_tls_wrappermode=yes
@@ -50,6 +69,7 @@ smtps     inet  n       -       y       -       5000    smtpd
   -o smtpd_relay_restrictions=permit_sasl_authenticated,reject
   -o smtpd_client_connection_count_limit=1000
   -o smtpd_proxy_filter=127.0.0.1:{{ config.filtermail_smtp_port }}
+{% endif %}
 #628       inet  n       -       y       -       -       qmqpd
 pickup    unix  n       -       y       60      1       pickup
 cleanup   unix  n       -       y       -       0       cleanup
@@ -83,7 +103,7 @@ filter    unix -        n       n       -       -       lmtp
   -o milter_macro_daemon_name=ORIGINATING
   -o cleanup_service_name=authclean
   -o smtpd_relay_restrictions=permit_mynetworks,reject
-{% if not config.ipv4_relay %}  -o smtpd_milters=unix:opendkim/opendkim.sock
+{% if not config.ipv4_relay and not config.ipv6_relay %}  -o smtpd_milters=unix:opendkim/opendkim.sock
 {% endif %}
 
 # Local SMTP server for reinjecting incoming filtered mail 

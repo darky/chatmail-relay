@@ -89,7 +89,8 @@ def _build_webpages(src_dir, build_dir, config):
         build_dir.mkdir()
 
     qr_path = build_dir.joinpath(f"qr-chatmail-invite-{mail_domain}.png")
-    qr_path.write_bytes(gen_qr_png_data(mail_domain).read())
+    scheme = "http" if config.tls_cert_mode == "none" else "https"
+    qr_path.write_bytes(gen_qr_png_data(mail_domain, scheme=scheme).read())
 
     for path in src_dir.iterdir():
         if path.suffix == ".md":

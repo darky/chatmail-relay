@@ -1,4 +1,6 @@
+{% if config.tls_cert_mode != "none" %}
 load_module modules/ngx_stream_module.so;
+{% endif %}
 
 user www-data;
 worker_processes auto;
@@ -24,6 +26,7 @@ events {
 	# multi_accept on;
 }
 
+{% if config.tls_cert_mode != "none" %}
 stream {
         map $ssl_preread_alpn_protocols $proxy {
             default 127.0.0.1:8443;
@@ -40,6 +43,7 @@ stream {
                 ssl_preread on;
         }
 }
+{% endif %}
 
 http {
 	# access_log setting is inherited by all server sections
@@ -57,16 +61,21 @@ http {
 	include /etc/nginx/mime.types;
 	default_type application/octet-stream;
 
+{% if config.tls_cert_mode != "none" %}
 	ssl_protocols TLSv1.2 TLSv1.3;
 	ssl_prefer_server_ciphers on;
 	ssl_certificate {{ config.tls_cert_path }};
 	ssl_certificate_key {{ config.tls_key_path }};
+{% endif %}
 
 	gzip on;
 
 	server {
-  
+  {% if config.tls_cert_mode != "none" %}
 		listen 127.0.0.1:8443 ssl default_server;
+  {% else %}
+		listen 127.0.0.1:8080 default_server;
+  {% endif %}
 
 		root /var/www/html;
 
@@ -85,13 +94,15 @@ http {
 		}
 
 		location /new {
-{% if config.tls_cert_mode != "self" %}
+{% if config.tls_cert_mode != "self" and config.tls_cert_mode != "none" %}
 			if ($request_method = GET) {
 				# Redirect to Delta Chat,
 				# which will in turn do a POST request.
 				return 301 dcaccount:https://{{ config.mail_domain }}/new;
 			}
-{% else %}
+{% endif %}
+
+{% if config.tls_cert_mode == "self" %}
 			limit_req zone=newaccount burst=5 nodelay;
 {% endif %}
 
@@ -107,7 +118,7 @@ http {
 		#
 		# Redirects are only for browsers.
 		location /cgi-bin/newemail.py {
-{% if config.tls_cert_mode != "self" %}
+{% if config.tls_cert_mode != "self" and config.tls_cert_mode != "none" %}
 			if ($request_method = GET) {
 				return 301 dcaccount:https://{{ config.mail_domain }}/new;
 			}
@@ -139,12 +150,14 @@ http {
 		}
 	}
 
+{% if config.tls_cert_mode != "none" %}
 	# Redirect www. to non-www
 	server {
 		listen 127.0.0.1:8443 ssl;
 		server_name www.{{ config.mail_domain }};
 		return 301 $scheme://{{ config.mail_domain }}$request_uri;
 	}
+{% endif %}
 
 	server {
 		listen 80;
@@ -158,7 +171,11 @@ http {
 		}
 		{% endif %}
 
+  {% if config.tls_cert_mode != "none" %}
 		return 301 https://$host$request_uri;
+  {% else %}
+		return 301 http://$host$request_uri;
+  {% endif %}
 	}
 
 	{% if config.tls_cert_mode == "acme" %}

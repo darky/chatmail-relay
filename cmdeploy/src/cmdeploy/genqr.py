@@ -6,8 +6,8 @@ import qrcode
 from PIL import Image, ImageDraw, ImageFont
 
 
-def gen_qr_png_data(maildomain):
-    url = f"DCACCOUNT:https://{maildomain}/new"
+def gen_qr_png_data(maildomain, scheme="https"):
+    url = f"DCACCOUNT:{scheme}://{maildomain}/new"
     image = gen_qr(maildomain, url)
     temp = io.BytesIO()
     image.save(temp, format="png")

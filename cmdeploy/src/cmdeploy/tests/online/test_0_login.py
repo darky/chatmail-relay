@@ -94,7 +94,8 @@ def test_no_vrfy(cmfactory, chatmail_config, maildomain):
     addr = ac.get_config("addr")
 
     s = smtplib.SMTP(maildomain)
-    s.starttls()
+    if chatmail_config.tls_cert_mode != "none":
+        s.starttls()
 
     s.putcmd("vrfy", f"wrongaddress@{chatmail_config.mail_domain}")
     result = s.getreply()

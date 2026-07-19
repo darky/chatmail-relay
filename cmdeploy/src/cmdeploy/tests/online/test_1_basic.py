@@ -5,7 +5,11 @@ import subprocess
 import time
 
 import pytest
-from chatmaild.config import is_valid_ipv4
+from chatmaild.config import is_valid_ipv4, is_valid_ipv6
+
+
+def _is_ip_relay(domain):
+    return is_valid_ipv4(domain) or is_valid_ipv6(domain)
 
 from cmdeploy import remote
 from cmdeploy.cmdeploy import get_sshexec
@@ -22,7 +26,7 @@ class TestSSHExecutor:
         assert out == out2
 
     def test_perform_initial(self, sshexec, maildomain):
-        if is_valid_ipv4(maildomain):
+        if _is_ip_relay(maildomain):
             pytest.skip(f"{maildomain} is not a domain")
         res = sshexec(
             remote.rdns.perform_initial_checks, kwargs=dict(mail_domain=maildomain)
@@ -66,8 +70,8 @@ class TestSSHExecutor:
 
     def test_opendkim_restarted(self, sshexec, maildomain):
         """check that opendkim is not running for longer than a day."""
-        if is_valid_ipv4(maildomain):
-            pytest.skip(f"{maildomain} is an IPv4 relay, opendkim is not installed")
+        if _is_ip_relay(maildomain):
+            pytest.skip(f"{maildomain} is a raw IP relay, opendkim is not installed")
         cmd = "systemctl show opendkim --timestamp=utc --property=ActiveEnterTimestamp"
         out = sshexec(call=remote.rshell.shell, kwargs=dict(command=cmd))
         datestring = out.split("=")[1]
@@ -173,7 +177,9 @@ def test_authenticated_from(cmsetup, maildata):
 
 
 @pytest.mark.parametrize("from_addr", ["fake@example.org", "fake@testrun.org"])
-def test_reject_missing_dkim(cmsetup, maildata, from_addr):
+def test_reject_missing_dkim(cmsetup, maildata, from_addr, chatmail_config):
+    if chatmail_config.tls_cert_mode == "none":
+        pytest.skip("STARTTLS not available when TLS is disabled")
     domain = cmsetup.maildomain
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.settimeout(10)
@@ -198,8 +204,8 @@ def test_bounces_are_dkim_signed(cmsetup, cmsetup2, maildata, maildomain):
     # we send a message to non-existant user and expect a bounce message
     # which will only get through if the bounce message was DKIM-signed
 
-    if is_valid_ipv4(maildomain):
-        pytest.skip("DKIM is not configured on IPv4-only relays")
+    if _is_ip_relay(maildomain):
+        pytest.skip("DKIM is not configured on raw IP relays")
 
     sender = cmsetup2.gen_users(1)[0]
     nonexistent = f"nosuchuser_test42@{cmsetup.maildomain}"

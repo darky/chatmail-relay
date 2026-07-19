@@ -21,10 +21,17 @@ class Config:
 
         if is_valid_ipv4(raw_domain):
             self.ipv4_relay = raw_domain
+            self.ipv6_relay = None
             self.mail_domain = f"[{raw_domain}]"
             self.postfix_myhostname = ipaddress.IPv4Address(raw_domain).reverse_pointer
+        elif is_valid_ipv6(raw_domain):
+            self.ipv4_relay = None
+            self.ipv6_relay = raw_domain
+            self.mail_domain = f"[IPv6:{raw_domain}]"
+            self.postfix_myhostname = ipaddress.IPv6Address(raw_domain).reverse_pointer
         else:
             self.ipv4_relay = None
+            self.ipv6_relay = None
             self.mail_domain = raw_domain
             self.postfix_myhostname = raw_domain
 
@@ -80,25 +87,37 @@ class Config:
         # Otherwise derived from the domain name:
         # - Domains starting with "_" use self-signed certificates
         # - All other domains use ACME.
-        external = params.pop("tls_external_cert_and_key", "").strip()
+        # If tls_enabled is set to "false", TLS is disabled entirely.
+        tls_enabled = params.pop("tls_enabled", "true").lower() == "true"
 
-        if external:
-            parts = external.split()
-            if len(parts) != 2:
-                raise ValueError(
-                    "tls_external_cert_and_key must have two space-separated"
-                    " paths: CERT_PATH KEY_PATH"
-                )
-            self.tls_cert_mode = "external"
-            self.tls_cert_path, self.tls_key_path = parts
-        elif raw_domain.startswith("_") or self.ipv4_relay:
-            self.tls_cert_mode = "self"
-            self.tls_cert_path = "/etc/ssl/certs/mailserver.pem"
-            self.tls_key_path = "/etc/ssl/private/mailserver.key"
+        if not tls_enabled:
+            self.tls_cert_mode = "none"
+            self.tls_cert_path = ""
+            self.tls_key_path = ""
         else:
-            self.tls_cert_mode = "acme"
-            self.tls_cert_path = f"/var/lib/acme/live/{raw_domain}/fullchain"
-            self.tls_key_path = f"/var/lib/acme/live/{raw_domain}/privkey"
+            external = params.pop("tls_external_cert_and_key", "").strip()
+
+            if external:
+                parts = external.split()
+                if len(parts) != 2:
+                    raise ValueError(
+                        "tls_external_cert_and_key must have two space-separated"
+                        " paths: CERT_PATH KEY_PATH"
+                    )
+                self.tls_cert_mode = "external"
+                self.tls_cert_path, self.tls_key_path = parts
+            elif raw_domain.startswith("_"):
+                self.tls_cert_mode = "self"
+                self.tls_cert_path = "/etc/ssl/certs/mailserver.pem"
+                self.tls_key_path = "/etc/ssl/private/mailserver.key"
+            elif self.ipv4_relay or self.ipv6_relay:
+                self.tls_cert_mode = "none"
+                self.tls_cert_path = ""
+                self.tls_key_path = ""
+            else:
+                self.tls_cert_mode = "acme"
+                self.tls_cert_path = f"/var/lib/acme/live/{raw_domain}/fullchain"
+                self.tls_key_path = f"/var/lib/acme/live/{raw_domain}/privkey"
 
         # deprecated option
         mbdir = params.pop("mailboxes_dir", f"/home/vmail/mail/{raw_domain}")
@@ -170,6 +189,15 @@ def is_valid_ipv4(address: str) -> bool:
     """Check if a mail_domain is an IPv4 address."""
     try:
         ipaddress.IPv4Address(address)
+        return True
+    except ValueError:
+        return False
+
+
+def is_valid_ipv6(address: str) -> bool:
+    """Check if a mail_domain is an IPv6 address."""
+    try:
+        ipaddress.IPv6Address(address)
         return True
     except ValueError:
         return False

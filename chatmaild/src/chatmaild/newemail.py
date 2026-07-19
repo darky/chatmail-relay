@@ -31,9 +31,10 @@ def create_dclogin_url(config, email, password):
     Uses ic=3 (AcceptInvalidCertificates) so chatmail clients
     can connect to servers with self-signed TLS certificates.
     """
-    if config.ipv4_relay:
-        imap_host = "&ih=" + config.ipv4_relay
-        smtp_host = "&sh=" + config.ipv4_relay
+    relay = config.ipv4_relay or config.ipv6_relay
+    if relay:
+        imap_host = "&ih=" + relay
+        smtp_host = "&sh=" + relay
     else:
         imap_host = ""
         smtp_host = ""

@@ -2,6 +2,7 @@ import pytest
 
 from chatmaild.config import (
     is_valid_ipv4,
+    is_valid_ipv6,
     parse_size_mb,
     read_config,
 )
@@ -99,6 +100,20 @@ def test_config_tls_self(make_config):
     assert config.tls_key_path == "/etc/ssl/private/mailserver.key"
 
 
+def test_config_tls_ipv4_relay_disables_tls(make_config):
+    config = make_config("1.3.3.7")
+    assert config.tls_cert_mode == "none"
+    assert config.tls_cert_path == ""
+    assert config.tls_key_path == ""
+
+
+def test_config_tls_ipv6_relay_disables_tls(make_config):
+    config = make_config("::1")
+    assert config.tls_cert_mode == "none"
+    assert config.tls_cert_path == ""
+    assert config.tls_key_path == ""
+
+
 def test_config_tls_external(make_config):
     config = make_config(
         "chat.example.org",
@@ -159,3 +174,36 @@ def test_max_mailbox_size_mb(make_config):
 )
 def test_is_valid_ipv4(input, result):
     assert result == is_valid_ipv4(input)
+
+
+@pytest.mark.parametrize(
+    ["input", "result"],
+    [
+        ("::1", True),
+        ("fe80::1", True),
+        ("2001:db8::1", True),
+        ("example.org", False),
+        ("1.3.3.7", False),
+        ("ad.1e.dag.adf", False),
+    ],
+)
+def test_is_valid_ipv6(input, result):
+    assert result == is_valid_ipv6(input)
+
+
+def test_read_config_ipv6(make_config):
+    config = make_config("::1")
+    assert config.ipv6_relay == "::1"
+    assert config.mail_domain == "[IPv6:::1]"
+
+
+def test_read_config_tls_disabled(make_config):
+    config = make_config("chat.example.org", {"tls_enabled": "false"})
+    assert config.tls_cert_mode == "none"
+    assert config.tls_cert_path == ""
+    assert config.tls_key_path == ""
+
+
+def test_read_config_tls_disabled_overrides_acme(make_config):
+    config = make_config("chat.example.org", {"tls_enabled": "false"})
+    assert config.tls_cert_mode == "none"

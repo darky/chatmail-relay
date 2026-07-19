@@ -59,6 +59,9 @@ mail_domain = {mail_domain}
 # if set to "True" IPv6 is disabled
 #disable_ipv6 = False
 
+# if set to "False" TLS is disabled (no certs, plaintext services)
+#tls_enabled = True
+
 # Your email adress, which will be used in acmetool to manage Let's Encrypt SSL certificates
 #acme_email =
 

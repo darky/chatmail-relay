@@ -11,12 +11,13 @@ from cmdeploy.remote import rshell
 
 
 @pytest.fixture
-def imap_mailbox(cmfactory, ssl_context):
+def imap_mailbox(cmfactory, ssl_context, chatmail_config):
     (ac1,) = cmfactory.get_online_accounts(1)
     user = ac1.get_config("addr")
     password = ac1.get_config("mail_pw")
     host = user.split("@")[1].strip("[").strip("]")
-    mailbox = imap_tools.MailBox(host, ssl_context=ssl_context)
+    use_ssl = chatmail_config.tls_cert_mode != "none"
+    mailbox = imap_tools.MailBox(host, ssl_context=ssl_context if use_ssl else None, ssl=use_ssl)
     mailbox.login(user, password)
     mailbox.dc_ac = ac1
     return mailbox
@@ -168,7 +169,7 @@ class TestEndToEndDeltaChat:
             time.sleep(1)
 
 
-def test_hide_senders_ip_address(cmfactory, ssl_context):
+def test_hide_senders_ip_address(cmfactory, ssl_context, chatmail_config):
     public_ip = requests.get("http://icanhazip.com").content.decode().strip()
     assert ipaddress.ip_address(public_ip)
 
@@ -180,7 +181,8 @@ def test_hide_senders_ip_address(cmfactory, ssl_context):
     addr = user2.get_config("addr")
     host = addr.split("@")[1].strip("[").strip("]")
     pw = user2.get_config("mail_pw")
-    mailbox = imap_tools.MailBox(host, ssl_context=ssl_context)
+    use_ssl = chatmail_config.tls_cert_mode != "none"
+    mailbox = imap_tools.MailBox(host, ssl_context=ssl_context if use_ssl else None, ssl=use_ssl)
     mailbox.login(addr, pw)
     msgs = list(mailbox.fetch(mark_seen=False))
     assert msgs, "expected at least one message"
