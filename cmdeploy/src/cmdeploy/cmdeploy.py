@@ -21,10 +21,17 @@ from . import dns, remote
 from .sshexec import LocalExec, SSHExec
 
 
-def _format_ssh_host(host: str) -> str:
+def _bare_host(host: str) -> str:
+    """Strip brackets and [IPv6:] prefix, return bare address for execnet/SSH."""
     if host.startswith("[IPv6:"):
         host = host[6:-1]
-    if ":" in host and not host.startswith("["):
+    return host.strip("[]")
+
+
+def _bracket_host(host: str) -> str:
+    """Add brackets for IPv6 if needed, for pyinfra shell commands."""
+    host = _bare_host(host)
+    if ":" in host:
         host = f"[{host}]"
     return host
 
@@ -104,8 +111,10 @@ def _warn_unused_settings(unused_keys, out):
 def run_cmd(args, out):
     """Deploy chatmail services on the remote server."""
 
-    ssh_host = _format_ssh_host(args.ssh_host if args.ssh_host else args.config.mail_domain_bare)
-    sshexec = get_sshexec(ssh_host)
+    raw_host = args.ssh_host if args.ssh_host else args.config.mail_domain_bare
+    sshexec_host = _bare_host(raw_host)
+    ssh_host = _bracket_host(raw_host)
+    sshexec = get_sshexec(sshexec_host)
     require_iroh = args.config.enable_iroh_relay
     strict_tls = args.config.tls_cert_mode == "acme"
     if args.config.ipv4_relay or args.config.ipv6_relay:
@@ -166,8 +175,10 @@ def dns_cmd(args, out):
         relay = args.config.ipv4_relay or args.config.ipv6_relay
         print(f"[WARNING] {relay} is not a domain, skipping DNS checks.")
         return 0
-    ssh_host = _format_ssh_host(args.ssh_host if args.ssh_host else args.config.mail_domain)
-    sshexec = get_sshexec(ssh_host, verbose=args.verbose)
+    raw_host = args.ssh_host if args.ssh_host else args.config.mail_domain
+    sshexec_host = _bare_host(raw_host)
+    ssh_host = _bracket_host(raw_host)
+    sshexec = get_sshexec(sshexec_host, verbose=args.verbose)
     tls_cert_mode = args.config.tls_cert_mode
     strict_tls = tls_cert_mode == "acme"
     remote_data = dns.get_initial_remote_data(sshexec, args.config.mail_domain)
@@ -203,8 +214,10 @@ def status_cmd_options(parser):
 def status_cmd(args, out):
     """Display status for online chatmail instance."""
 
-    ssh_host = _format_ssh_host(args.ssh_host if args.ssh_host else args.config.mail_domain_bare)
-    sshexec = get_sshexec(ssh_host, verbose=args.verbose)
+    raw_host = args.ssh_host if args.ssh_host else args.config.mail_domain_bare
+    sshexec_host = _bare_host(raw_host)
+    ssh_host = _bracket_host(raw_host)
+    sshexec = get_sshexec(sshexec_host, verbose=args.verbose)
 
     out.green(f"chatmail domain: {args.config.mail_domain}")
     if args.config.privacy_mail:

@@ -56,7 +56,7 @@ class SSHExec:
     FuncError = FuncError
 
     def __init__(self, host, verbose=False, python="python3", timeout=60):
-        host = _bracket_ipv6(host)
+        host = host.strip("[]")
         if ":" in host:
             spec = f"ssh=-l root {host}//python={python}"
         else:
