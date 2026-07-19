@@ -57,7 +57,11 @@ class SSHExec:
 
     def __init__(self, host, verbose=False, python="python3", timeout=60):
         host = _bracket_ipv6(host)
-        self.gateway = execnet.makegateway(f"ssh=root@{host}//python={python}")
+        if ":" in host:
+            spec = f"ssh=-l root {host}//python={python}"
+        else:
+            spec = f"ssh=root@{host}//python={python}"
+        self.gateway = execnet.makegateway(spec)
         self._remote_cmdloop_channel = bootstrap_remote(self.gateway, remote)
         self.timeout = timeout
         self.verbose = verbose
