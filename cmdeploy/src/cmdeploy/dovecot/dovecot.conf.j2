@@ -9,6 +9,9 @@ listen = [::]
 protocols = imap lmtp
 
 auth_mechanisms = plain
+{% if config.tls_cert_mode == "none" %}
+auth_allow_cleartext_plain = yes
+{% endif %}
 auth_username_chars = abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890.-_@[]
 
 {% if debug == true %}
