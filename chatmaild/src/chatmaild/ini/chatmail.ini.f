@@ -56,8 +56,12 @@ mail_domain = {mail_domain}
 # Deployment Details
 #
 
-# if set to "True" IPv6 is disabled
+# if set to "True" IPv6 is disabled (listen on 0.0.0.0 only)
 #disable_ipv6 = False
+
+# if set to "True" IPv6 is preferred (listen on [::] only, no 0.0.0.0)
+# Mutually exclusive with disable_ipv6.
+#ipv6_only = False
 
 # if set to "False" TLS is disabled (no certs, plaintext services)
 #tls_enabled = True

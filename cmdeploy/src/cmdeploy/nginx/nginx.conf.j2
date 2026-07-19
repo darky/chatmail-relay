@@ -35,7 +35,9 @@ stream {
         }
 
         server {
+                {% if not ipv6_only %}
                 listen 443;
+                {% endif %}
                 {% if not disable_ipv6 %}
                 listen [::]:443;
                 {% endif %}
@@ -160,7 +162,9 @@ http {
 {% endif %}
 
 	server {
+		{% if not ipv6_only %}
 		listen 80;
+		{% endif %}
 		{% if not disable_ipv6 %}
 		listen [::]:80;
 		{% endif %}

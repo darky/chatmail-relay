@@ -179,6 +179,7 @@ class UnboundDeployer(Deployer):
             "unbound/unbound.conf.j2",
             "/etc/unbound/unbound.conf.d/chatmail.conf",
             disable_ipv6=self.config.disable_ipv6,
+            ipv6_only=self.config.ipv6_only,
         )
 
     def activate(self):

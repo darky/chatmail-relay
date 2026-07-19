@@ -75,18 +75,20 @@ local_recipient_maps =
 relayhost = 
 {% if disable_ipv6 %}
 mynetworks = 127.0.0.0/8
+inet_interfaces = all
+inet_protocols = ipv4
+{% elif ipv6_only %}
+mynetworks = [::ffff:127.0.0.0]/104 [::1]/128
+inet_interfaces = [::]
+inet_protocols = ipv6
 {% else %}
 mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128
+inet_interfaces = all
+inet_protocols = all
 {% endif %}
 mailbox_size_limit = 0
 message_size_limit = {{config.max_message_size}}
 recipient_delimiter = +
-inet_interfaces = all
-{% if disable_ipv6 %}
-inet_protocols = ipv4
-{% else %}
-inet_protocols = all
-{% endif %}
 
 lmtp_header_checks = regexp:/etc/postfix/lmtp_header_cleanup
 

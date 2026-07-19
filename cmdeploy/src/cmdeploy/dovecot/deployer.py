@@ -142,6 +142,7 @@ def _configure_dovecot(deployer, config: Config, debug: bool = False):
         config=config,
         debug=debug,
         disable_ipv6=config.disable_ipv6,
+        ipv6_only=config.ipv6_only,
     )
     deployer.put_file("dovecot/auth.conf", "/etc/dovecot/auth.conf")
     deployer.put_file(

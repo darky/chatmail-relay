@@ -3,5 +3,8 @@ server:
 {% if disable_ipv6 %}
   interface: 127.0.0.1
   do-ip6: no
+{% elif ipv6_only %}
+  interface: [::1]
+  do-ip4: no
 {% endif %}
   cache-max-negative-ttl: 0

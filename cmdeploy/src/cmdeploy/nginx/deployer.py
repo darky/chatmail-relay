@@ -58,6 +58,7 @@ def _configure_nginx(deployer, config: Config, debug: bool = False):
         "/etc/nginx/nginx.conf",
         config=config,
         disable_ipv6=config.disable_ipv6,
+        ipv6_only=config.ipv6_only,
     )
 
     deployer.put_template(

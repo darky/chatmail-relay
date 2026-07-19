@@ -24,6 +24,7 @@ class PostfixDeployer(Deployer):
             "/etc/postfix/main.cf",
             config=config,
             disable_ipv6=config.disable_ipv6,
+            ipv6_only=config.ipv6_only,
         )
 
         self.put_template(
