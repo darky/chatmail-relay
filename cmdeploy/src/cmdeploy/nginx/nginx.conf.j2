@@ -1,4 +1,4 @@
-{% set local_addr = "[::1]" if ipv6_only else "{{ local_addr }}" %}
+{% set local_addr = "[::1]" if ipv6_only else "127.0.0.1" %}
 {% if config.tls_cert_mode != "none" %}
 load_module modules/ngx_stream_module.so;
 {% endif %}
@@ -73,12 +73,19 @@ http {
 
 	gzip on;
 
+{% if config.tls_cert_mode == "none" %}
+	# TLS disabled — serve everything directly on port 80
 	server {
-  {% if config.tls_cert_mode != "none" %}
+		{% if not ipv6_only %}
+		listen 80;
+		{% endif %}
+		{% if not disable_ipv6 %}
+		listen [::]:80;
+		{% endif %}
+{% else %}
+	server {
 		listen {{ local_addr }}:8443 ssl default_server;
-  {% else %}
-		listen {{ local_addr }}:8080 default_server;
-  {% endif %}
+{% endif %}
 
 		root /var/www/html;
 
@@ -160,7 +167,6 @@ http {
 		server_name www.{{ config.mail_domain }};
 		return 301 $scheme://{{ config.mail_domain }}$request_uri;
 	}
-{% endif %}
 
 	server {
 		{% if not ipv6_only %}
@@ -176,11 +182,7 @@ http {
 		}
 		{% endif %}
 
-  {% if config.tls_cert_mode != "none" %}
 		return 301 https://$host$request_uri;
-  {% else %}
-		return 301 http://$host$request_uri;
-  {% endif %}
 	}
 
 	{% if config.tls_cert_mode == "acme" %}
@@ -188,4 +190,5 @@ http {
 		server {{ local_addr }}:402;
 	}
 	{% endif %}
+{% endif %}
 }
