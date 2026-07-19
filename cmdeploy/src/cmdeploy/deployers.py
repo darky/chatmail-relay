@@ -494,7 +494,7 @@ def deploy_chatmail(config_path: Path, disable_mail: bool, website_only: bool) -
     if not is_in_container():
         port_services = [
             (["master", "smtpd"], 25),
-            ("unbound", 53),
+            ("unbound", 853),
         ]
         if config.tls_cert_mode == "acme":
             port_services.append(("acmetool", 402))
@@ -543,7 +543,6 @@ def deploy_chatmail(config_path: Path, disable_mail: bool, website_only: bool) -
         LegacyRemoveDeployer(),
         FiltermailDeployer(),
         JournaldDeployer(),
-        UnboundDeployer(config),
         TurnDeployer(bare_host),
         IrohDeployer(config.enable_iroh_relay),
     ]
@@ -553,6 +552,7 @@ def deploy_chatmail(config_path: Path, disable_mail: bool, website_only: bool) -
         WebsiteDeployer(config),
         ChatmailVenvDeployer(config),
         MtastsDeployer(),
+        *([] if config.ipv4_relay or config.ipv6_relay else [UnboundDeployer(config)]),
         *([] if config.ipv4_relay or config.ipv6_relay else [OpendkimDeployer(bare_host)]),
         # Dovecot should be started before Postfix
         # because it creates authentication socket
