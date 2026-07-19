@@ -1,3 +1,4 @@
+{% set local_addr = "localhost" if ipv6_only else "{{ local_addr }}" %}
 #
 # Postfix master process configuration file.  For details on the format
 # of the file, see the master(5) manual page (command: "man 5 master" or
@@ -18,7 +19,7 @@ smtp      inet  n       -       y       -       -       smtpd
   -o smtpd_tls_security_level=encrypt
   -o smtpd_tls_mandatory_protocols=>=TLSv1.2
 {% endif %}
-  -o smtpd_proxy_filter=127.0.0.1:{{ config.filtermail_smtp_port_incoming }}
+  -o smtpd_proxy_filter={{ local_addr }}:{{ config.filtermail_smtp_port_incoming }}
   -o smtpd_relay_restrictions=reject_unauth_destination
 submission inet n       -       y       -       5000    smtpd
   -o syslog_name=postfix/submission
@@ -37,7 +38,7 @@ submission inet n       -       y       -       5000    smtpd
   -o smtpd_recipient_restrictions=
   -o smtpd_relay_restrictions=permit_sasl_authenticated,reject
   -o smtpd_client_connection_count_limit=1000
-  -o smtpd_proxy_filter=127.0.0.1:{{ config.filtermail_smtp_port }}
+  -o smtpd_proxy_filter={{ local_addr }}:{{ config.filtermail_smtp_port }}
 {% if config.tls_cert_mode != "none" %}
 smtps     inet  n       -       y       -       5000    smtpd
   -o syslog_name=postfix/smtps
@@ -54,7 +55,7 @@ smtps     inet  n       -       y       -       5000    smtpd
   -o smtpd_recipient_restrictions=
   -o smtpd_relay_restrictions=permit_sasl_authenticated,reject
   -o smtpd_client_connection_count_limit=1000
-  -o smtpd_proxy_filter=127.0.0.1:{{ config.filtermail_smtp_port }}
+  -o smtpd_proxy_filter={{ local_addr }}:{{ config.filtermail_smtp_port }}
 {% endif %}
 #628       inet  n       -       y       -       -       qmqpd
 pickup    unix  n       -       y       60      1       pickup
@@ -84,7 +85,7 @@ scache    unix  -       -       y       -       1       scache
 postlog   unix-dgram n  -       n       -       1       postlogd
 filter    unix -        n       n       -       -       lmtp
 # Local SMTP server for reinjecting outgoing filtered mail.
-127.0.0.1:{{ config.postfix_reinject_port }} inet  n       -       n       -       100      smtpd
+{{ local_addr }}:{{ config.postfix_reinject_port }} inet  n       -       n       -       100      smtpd
   -o syslog_name=postfix/reinject
   -o milter_macro_daemon_name=ORIGINATING
   -o cleanup_service_name=authclean
@@ -93,7 +94,7 @@ filter    unix -        n       n       -       -       lmtp
 {% endif %}
 
 # Local SMTP server for reinjecting incoming filtered mail 
-127.0.0.1:{{ config.postfix_reinject_port_incoming }} inet  n       -       n       -       100      smtpd
+{{ local_addr }}:{{ config.postfix_reinject_port_incoming }} inet  n       -       n       -       100      smtpd
   -o syslog_name=postfix/reinject_incoming
   -o smtpd_relay_restrictions=reject_unauth_destination
 

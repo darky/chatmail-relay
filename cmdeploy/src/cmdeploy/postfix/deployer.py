@@ -32,6 +32,7 @@ class PostfixDeployer(Deployer):
             "/etc/postfix/master.cf",
             debug=False,
             config=config,
+            ipv6_only=config.ipv6_only,
         )
 
         self.put_file(
