@@ -28,12 +28,7 @@ def _bare_host(host: str) -> str:
     return host.strip("[]")
 
 
-def _bracket_host(host: str) -> str:
-    """Add brackets for IPv6 if needed, for pyinfra shell commands."""
-    host = _bare_host(host)
-    if ":" in host:
-        host = f"[{host}]"
-    return host
+
 
 #
 # cmdeploy sub commands and options
@@ -113,7 +108,6 @@ def run_cmd(args, out):
 
     raw_host = args.ssh_host if args.ssh_host else args.config.mail_domain_bare
     sshexec_host = _bare_host(raw_host)
-    ssh_host = _bracket_host(raw_host)
     sshexec = get_sshexec(sshexec_host)
     require_iroh = args.config.enable_iroh_relay
     strict_tls = args.config.tls_cert_mode == "acme"
@@ -132,8 +126,8 @@ def run_cmd(args, out):
     deploy_path = importlib.resources.files(__package__).joinpath("run.py").resolve()
     pyinf = "pyinfra --dry" if args.dry_run else "pyinfra"
 
-    cmd = f"{pyinf} --ssh-user root {ssh_host} {deploy_path} -y"
-    if ssh_host == "localhost":
+    cmd = f"{pyinf} --ssh-user root {sshexec_host} {deploy_path} -y"
+    if sshexec_host == "localhost":
         cmd = f"{pyinf} @local {deploy_path} -y"
 
     if version.parse(pyinfra.__version__) < version.parse("3"):
@@ -177,7 +171,6 @@ def dns_cmd(args, out):
         return 0
     raw_host = args.ssh_host if args.ssh_host else args.config.mail_domain
     sshexec_host = _bare_host(raw_host)
-    ssh_host = _bracket_host(raw_host)
     sshexec = get_sshexec(sshexec_host, verbose=args.verbose)
     tls_cert_mode = args.config.tls_cert_mode
     strict_tls = tls_cert_mode == "acme"
@@ -216,7 +209,6 @@ def status_cmd(args, out):
 
     raw_host = args.ssh_host if args.ssh_host else args.config.mail_domain_bare
     sshexec_host = _bare_host(raw_host)
-    ssh_host = _bracket_host(raw_host)
     sshexec = get_sshexec(sshexec_host, verbose=args.verbose)
 
     out.green(f"chatmail domain: {args.config.mail_domain}")
